@@ -7822,9 +7822,42 @@ P.S. Если будут вопросы, то пишите! Будем рады 
     }
 
     const teacherNotesStorageKey = "teacher-hub-notes-v1";
+    const teacherNotesAuthorTokenKey = "teacher-hub-note-author-token-v1";
     const teacherNotesApiUrl = "/api/teacher-notes";
     const teacherNotesRemoteEnabled = window.location.protocol !== "file:";
     let teacherNotesRequestId = 0;
+    let teacherNotesAuthorToken = "";
+
+    function getTeacherNotesAuthorToken() {
+      if (teacherNotesAuthorToken) return teacherNotesAuthorToken;
+
+      try {
+        const savedToken = localStorage.getItem(teacherNotesAuthorTokenKey);
+        if (savedToken && savedToken.length >= 20) {
+          teacherNotesAuthorToken = savedToken;
+          return teacherNotesAuthorToken;
+        }
+      } catch {
+        // Continue with an in-memory token when browser storage is unavailable.
+      }
+
+      if (window.crypto?.randomUUID) {
+        teacherNotesAuthorToken = window.crypto.randomUUID();
+      } else if (window.crypto?.getRandomValues) {
+        const bytes = new Uint8Array(24);
+        window.crypto.getRandomValues(bytes);
+        teacherNotesAuthorToken = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+      } else {
+        teacherNotesAuthorToken = `${Date.now()}-${Math.random()}-${Math.random()}`;
+      }
+
+      try {
+        localStorage.setItem(teacherNotesAuthorTokenKey, teacherNotesAuthorToken);
+      } catch {
+        // The token still works for the current page session.
+      }
+      return teacherNotesAuthorToken;
+    }
 
     function getTeacherNoteKey() {
       if (hasModuleLessons(currentCourse)) {
@@ -7867,6 +7900,7 @@ P.S. Если будут вопросы, то пишите! Будем рады 
         ...options,
         headers: {
           "Content-Type": "application/json",
+          "X-Teacher-Note-Token": getTeacherNotesAuthorToken(),
           ...(options.headers || {})
         }
       });
@@ -7939,7 +7973,7 @@ P.S. Если будут вопросы, то пишите! Будем рады 
             <div>${linkifyText(note.text)}</div>
             <div class="note-meta">${escapeHtml(note.createdAt || "")}</div>
           </div>
-          <button class="small-btn" type="button" data-delete-note="${note.id}" title="Удалить запись" aria-label="Удалить запись">
+          ${note.canDelete ? `<button class="small-btn" type="button" data-delete-note="${note.id}" title="Удалить запись" aria-label="Удалить запись">
             <svg class="trash-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M3 6h18"></path>
               <path d="M8 6V4h8v2"></path>
@@ -7947,7 +7981,7 @@ P.S. Если будут вопросы, то пишите! Будем рады 
               <path d="M10 11v6"></path>
               <path d="M14 11v6"></path>
             </svg>
-          </button>
+          </button>` : ""}
         </div>
       `).join("");
       if (statusText) {
@@ -8328,6 +8362,7 @@ P.S. Если будут вопросы, то пишите! Будем рады 
         notes.push({
           id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
           text,
+          canDelete: true,
           createdAt: new Date().toLocaleString("ru-RU", {
             day: "2-digit",
             month: "2-digit",

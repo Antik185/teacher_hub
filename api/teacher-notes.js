@@ -1,6 +1,6 @@
 const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-const { randomUUID } = require("crypto");
+const { createHash, randomUUID, timingSafeEqual } = require("crypto");
 
 const maxNotesPerLesson = 100;
 const maxTextLength = 4000;
@@ -39,6 +39,34 @@ function validateNoteText(text) {
     throw error;
   }
   return text.trim().slice(0, maxTextLength);
+}
+
+function getAuthorHash(req, required = false) {
+  const token = req.headers["x-teacher-note-token"];
+  const isValid = typeof token === "string" && token.length >= 20 && token.length <= 200;
+
+  if (!isValid) {
+    if (!required) return "";
+    const error = new Error("Author token is required.");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function hashesMatch(first, second) {
+  if (!first || !second || first.length !== second.length) return false;
+  return timingSafeEqual(Buffer.from(first, "utf8"), Buffer.from(second, "utf8"));
+}
+
+function notesForClient(notes, authorHash) {
+  return notes.map(note => ({
+    id: note.id,
+    text: note.text,
+    createdAt: note.createdAt,
+    canDelete: hashesMatch(note.authorHash, authorHash)
+  }));
 }
 
 async function readRequestBody(req) {
@@ -103,31 +131,50 @@ module.exports = async function handler(req, res) {
   try {
     if (req.method === "GET") {
       const key = validateLessonKey(req.query.key);
+      const authorHash = getAuthorHash(req);
       const notes = await readNotes(key);
-      return sendJson(res, 200, { notes });
+      return sendJson(res, 200, { notes: notesForClient(notes, authorHash) });
     }
 
     if (req.method === "POST") {
       const body = await readRequestBody(req);
       const key = validateLessonKey(body.key);
       const text = validateNoteText(body.text);
+      const authorHash = getAuthorHash(req, true);
       const notes = await readNotes(key);
       notes.push({
         id: randomUUID(),
         text,
-        createdAt: formatCreatedAt()
+        createdAt: formatCreatedAt(),
+        authorHash
       });
       await writeNotes(key, notes);
-      return sendJson(res, 200, { notes: notes.slice(-maxNotesPerLesson) });
+      return sendJson(res, 200, { notes: notesForClient(notes.slice(-maxNotesPerLesson), authorHash) });
     }
 
     if (req.method === "DELETE") {
       const body = await readRequestBody(req);
       const key = validateLessonKey(body.key);
       const noteId = typeof body.noteId === "string" ? body.noteId : "";
-      const notes = (await readNotes(key)).filter(note => note.id !== noteId);
-      await writeNotes(key, notes);
-      return sendJson(res, 200, { notes });
+      const authorHash = getAuthorHash(req, true);
+      const notes = await readNotes(key);
+      const note = notes.find(item => item.id === noteId);
+
+      if (!note) {
+        const error = new Error("Note not found.");
+        error.statusCode = 404;
+        throw error;
+      }
+
+      if (!hashesMatch(note.authorHash, authorHash)) {
+        const error = new Error("Only the author can delete this note.");
+        error.statusCode = 403;
+        throw error;
+      }
+
+      const remainingNotes = notes.filter(item => item.id !== noteId);
+      await writeNotes(key, remainingNotes);
+      return sendJson(res, 200, { notes: notesForClient(remainingNotes, authorHash) });
     }
 
     res.setHeader("Allow", "GET, POST, DELETE");
