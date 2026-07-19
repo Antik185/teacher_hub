@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Teacher Hub — материалы преподавателя</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Arial, sans-serif;
+      background: #f4f6fb;
+      color: #1f2937;
+    }
+    .app { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+    aside {
+      background: #111827;
+      color: white;
+      padding: 24px 18px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+    .logo { font-size: 24px; font-weight: 800; margin-bottom: 28px; }
+    .course-card {
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(255,255,255,.08);
+      margin-bottom: 12px;
+      cursor: pointer;
+    }
+    .course-card.active { background: #6366f1; }
+    .course-card small { color: #c7d2fe; display: block; margin-top: 4px; }
+    main { padding: 28px; }
+    .topbar {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .search {
+      flex: 1;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 14px 16px;
+      font-size: 15px;
+    }
+    .badge {
+      background: #e0e7ff;
+      color: #3730a3;
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .layout { display: grid; grid-template-columns: 330px 1fr; gap: 24px; }
+    .panel, .lesson {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 24px;
+      box-shadow: 0 10px 30px rgba(15,23,42,.05);
+    }
+    .panel { padding: 20px; align-self: start; }
+    .panel h2, .lesson h1 { margin-top: 0; }
+    .module-note {
+      background: #fef3c7;
+      border: 1px solid #fde68a;
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 18px;
+    }
+    .module-note h3 { margin: 0 0 8px; }
+    .module-list { display: grid; gap: 10px; }
+    .module-item {
+      padding: 14px;
+      border-radius: 16px;
+      background: #f9fafb;
+      border: 1px solid #eef2f7;
+    }
+    .module-item.active { border-color: #6366f1; background: #eef2ff; }
+    .lesson { padding: 26px; }
+    .lesson-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: flex-start;
+      margin-bottom: 18px;
+    }
+    .lesson h1 { font-size: 30px; margin-bottom: 6px; }
+    .meta { color: #6b7280; }
+    .quick-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 24px; }
+    button, .btn {
+      border: 0;
+      border-radius: 13px;
+      padding: 12px 14px;
+      font-weight: 800;
+      cursor: pointer;
+      background: #111827;
+      color: white;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 14px;
+    }
+    .btn.secondary { background: #eef2ff; color: #3730a3; }
+    .btn.green { background: #dcfce7; color: #166534; }
+    .btn.orange { background: #ffedd5; color: #9a3412; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .block {
+      border: 1px solid #e5e7eb;
+      border-radius: 20px;
+      padding: 18px;
+      background: #fff;
+    }
+    .block.full { grid-column: 1 / -1; }
+    .block h3 { margin: 0 0 12px; font-size: 18px; }
+    .link-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 14px;
+      background: #f9fafb;
+      margin-bottom: 10px;
+    }
+    .link-row span { font-weight: 700; }
+    .copy { background: #e5e7eb; color: #111827; padding: 8px 10px; font-size: 12px; }
+    .note {
+      padding: 14px;
+      border-radius: 16px;
+      background: #f9fafb;
+      margin-bottom: 10px;
+      border-left: 4px solid #6366f1;
+    }
+    .problem {
+      padding: 14px;
+      border-radius: 16px;
+      background: #fff7ed;
+      margin-bottom: 10px;
+      border-left: 4px solid #f97316;
+    }
+    .problem b { color: #9a3412; }
+    .parent-text {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 18px;
+      padding: 16px;
+      line-height: 1.55;
+    }
+    ul { margin: 0; padding-left: 20px; line-height: 1.65; }
+    @media (max-width: 1000px) {
+      .app, .layout, .grid { grid-template-columns: 1fr; }
+      aside { height: auto; position: relative; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <div class="logo">Teacher Hub</div>
+      <div class="course-card active">Juniors <small>Scratch · App Inventor · Stencyl</small></div>
+      <div class="course-card">Middle <small>Python · Roblox · Unity</small></div>
+      <div class="course-card">High <small>Unity · Unreal · Blender</small></div>
+    </aside>
+
+    <main>
+      <div class="topbar">
+        <input class="search" placeholder="Поиск: урок, модуль, ошибка, ссылка, материал..." />
+        <div class="badge">Для преподавателей</div>
+      </div>
+
+      <div class="layout">
+        <section class="panel">
+          <h2>Juniors / App Inventor</h2>
+
+          <div class="module-note">
+            <h3>Заметка по модулю</h3>
+            <ul>
+              <li>Проверить вход в App Inventor до начала модуля.</li>
+              <li>Подготовить папку с картинками и звуками.</li>
+              <li>Проверить, что у детей открывается эмулятор/AI Companion.</li>
+              <li>Сразу сохранить шаблоны ссылок для родителей.</li>
+            </ul>
+          </div>
+
+          <h3>Уроки модуля</h3>
+          <div class="module-list">
+            <div class="module-item active"><b>Урок 1</b><br>Знакомство с App Inventor</div>
+            <div class="module-item"><b>Урок 2</b><br>Кнопки и экраны</div>
+            <div class="module-item"><b>Урок 3</b><br>Вибрация и звук</div>
+            <div class="module-item"><b>Урок 4</b><br>Мини-приложение</div>
+            <div class="module-item"><b>Урок 5</b><br>Игра с персонажем</div>
+          </div>
+        </section>
+
+        <section class="lesson">
+          <div class="lesson-header">
+            <div>
+              <h1>Урок 3 — Вибрация и звук</h1>
+              <div class="meta">Курс: Juniors · Модуль: App Inventor · Обновлено: 09.07.2026</div>
+            </div>
+          </div>
+
+          <div class="quick-actions">
+            <a class="btn" href="#">Открыть заготовку</a>
+            <a class="btn secondary" href="#">Открыть готовый проект</a>
+            <a class="btn green" href="#">Видео урок</a>
+            <button class="btn orange">Скопировать текст родителям</button>
+          </div>
+
+          <div class="grid">
+            <div class="block">
+              <h3>Ссылки и файлы</h3>
+              <div class="link-row"><span>Заготовка</span><button class="copy">копировать</button></div>
+              <div class="link-row"><span>Готовый проект</span><button class="copy">копировать</button></div>
+              <div class="link-row"><span>Видео урок</span><button class="copy">копировать</button></div>
+              <div class="link-row"><span>Папка с материалами</span><button class="copy">копировать</button></div>
+            </div>
+
+            <div class="block">
+              <h3>Текст для родителей</h3>
+              <div class="parent-text">
+                Здравствуйте! Сегодня на уроке ребёнок работал с App Inventor: добавлял вибрацию и звук в приложение. Для повторения можно открыть видео и готовый проект по ссылке ниже.
+                <br><br>
+                Видео: https://example.com/video<br>
+                Проект: https://example.com/project
+              </div>
+            </div>
+
+            <div class="block full">
+              <h3>Заметки преподавателей</h3>
+              <div class="note"><b>Марина:</b> у детей часто не сразу получается найти компонент Sound. Лучше заранее показать, где он находится.</div>
+              <div class="note"><b>Артём:</b> если AI Companion лагает, можно сначала собрать логику без теста на телефоне.</div>
+              <div class="note"><b>Люба:</b> слабым детям лучше дать готовую картинку кнопки, чтобы не тратили время на оформление.</div>
+            </div>
+
+            <div class="block">
+              <h3>Сложности на уроке</h3>
+              <div class="problem"><b>Проблема:</b> вибрация не работает на ПК.<br><b>Что сказать:</b> вибрация проверяется только на телефоне.</div>
+              <div class="problem"><b>Проблема:</b> звук не проигрывается.<br><b>Что проверить:</b> файл загружен в Media, название совпадает.</div>
+              <div class="problem"><b>Проблема:</b> ребёнок добавил блок не к той кнопке.<br><b>Решение:</b> проверить название Button1/Button2.</div>
+            </div>
+
+            <div class="block">
+              <h3>Дополнительные материалы</h3>
+              <ul>
+                <li>Папка со звуками для кнопок</li>
+                <li>Иконки для приложения</li>
+                <li>Доп. пример: приложение “Смешная кнопка”</li>
+                <li>Шаблон сообщения родителям</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
