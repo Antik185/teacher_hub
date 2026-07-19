@@ -7822,6 +7822,9 @@ P.S. Если будут вопросы, то пишите! Будем рады 
     }
 
     const teacherNotesStorageKey = "teacher-hub-notes-v1";
+    const teacherNotesApiUrl = "/api/teacher-notes";
+    const teacherNotesRemoteEnabled = window.location.protocol !== "file:";
+    let teacherNotesRequestId = 0;
 
     function getTeacherNoteKey() {
       if (hasModuleLessons(currentCourse)) {
@@ -7842,6 +7845,65 @@ P.S. Если будут вопросы, то пишите! Будем рады 
       localStorage.setItem(teacherNotesStorageKey, JSON.stringify(store));
     }
 
+    function getLocalTeacherNotes(key) {
+      return readTeacherNotesStore()[key] || [];
+    }
+
+    function writeLocalTeacherNotes(key, notes) {
+      const store = readTeacherNotesStore();
+      if (notes.length) {
+        store[key] = notes;
+      } else {
+        delete store[key];
+      }
+      writeTeacherNotesStore(store);
+    }
+
+    async function requestTeacherNotes(path = "", options = {}) {
+      if (!teacherNotesRemoteEnabled) {
+        throw new Error("Remote notes are unavailable from a local file.");
+      }
+      const response = await fetch(`${teacherNotesApiUrl}${path}`, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          ...(options.headers || {})
+        }
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || "Teacher notes API request failed.");
+      }
+      return payload;
+    }
+
+    async function fetchTeacherNotes(key) {
+      const payload = await requestTeacherNotes(`?key=${encodeURIComponent(key)}`);
+      const notes = payload.notes || [];
+      writeLocalTeacherNotes(key, notes);
+      return notes;
+    }
+
+    async function createTeacherNote(key, text) {
+      const payload = await requestTeacherNotes("", {
+        method: "POST",
+        body: JSON.stringify({ key, text })
+      });
+      const notes = payload.notes || [];
+      writeLocalTeacherNotes(key, notes);
+      return notes;
+    }
+
+    async function removeTeacherNote(key, noteId) {
+      const payload = await requestTeacherNotes("", {
+        method: "DELETE",
+        body: JSON.stringify({ key, noteId })
+      });
+      const notes = payload.notes || [];
+      writeLocalTeacherNotes(key, notes);
+      return notes;
+    }
+
     function openDeleteConfirm(noteId) {
       pendingDeleteNoteId = noteId;
       document.getElementById("deleteConfirm").hidden = false;
@@ -7853,22 +7915,22 @@ P.S. Если будут вопросы, то пишите! Будем рады 
       document.getElementById("deleteConfirm").hidden = true;
     }
 
-    function deleteTeacherNote(noteId) {
-      const store = readTeacherNotesStore();
+    async function deleteTeacherNote(noteId) {
       const key = getTeacherNoteKey();
-      store[key] = (store[key] || []).filter(note => note.id !== noteId);
-      if (!store[key].length) {
-        delete store[key];
+      try {
+        const notes = await removeTeacherNote(key, noteId);
+        renderTeacherNotesList(notes);
+      } catch {
+        const notes = getLocalTeacherNotes(key).filter(note => note.id !== noteId);
+        writeLocalTeacherNotes(key, notes);
+        renderTeacherNotesList(notes, "Локальный режим: запись удалена только в этом браузере.");
       }
-      writeTeacherNotesStore(store);
-      renderTeacherNotes();
     }
 
-    function renderTeacherNotes() {
-      const notes = readTeacherNotesStore()[getTeacherNoteKey()] || [];
+    function renderTeacherNotesList(notes, statusText = "") {
       const container = document.getElementById("teacherNotes");
       if (!notes.length) {
-        container.innerHTML = `<div class="empty-state">Записей пока нет.</div>`;
+        container.innerHTML = `<div class="empty-state">${statusText || "Записей пока нет."}</div>`;
         return;
       }
       container.innerHTML = notes.map(note => `
@@ -7888,6 +7950,30 @@ P.S. Если будут вопросы, то пишите! Будем рады 
           </button>
         </div>
       `).join("");
+      if (statusText) {
+        container.insertAdjacentHTML("afterbegin", `<div class="empty-state">${escapeHtml(statusText)}</div>`);
+      }
+    }
+
+    async function renderTeacherNotes() {
+      const key = getTeacherNoteKey();
+      const requestId = ++teacherNotesRequestId;
+      const localNotes = getLocalTeacherNotes(key);
+      renderTeacherNotesList(localNotes, localNotes.length ? "" : "Загружаю записи...");
+
+      try {
+        const notes = await fetchTeacherNotes(key);
+        if (requestId === teacherNotesRequestId) {
+          renderTeacherNotesList(notes);
+        }
+      } catch {
+        if (requestId === teacherNotesRequestId) {
+          renderTeacherNotesList(
+            localNotes,
+            localNotes.length ? "Локальный режим: глобальное хранилище не настроено." : "Глобальное хранилище не настроено."
+          );
+        }
+      }
     }
 
     function escapeHtml(value) {
@@ -8219,7 +8305,7 @@ P.S. Если будут вопросы, то пишите! Будем рады 
       setAssistantStatus("Чат очищен.");
     });
 
-    document.getElementById("teacherNoteForm").addEventListener("submit", (event) => {
+    document.getElementById("teacherNoteForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       const textInput = document.getElementById("teacherNoteInput");
       const text = textInput.value.trim();
@@ -8228,24 +8314,35 @@ P.S. Если будут вопросы, то пишите! Будем рады 
         return;
       }
 
-      const store = readTeacherNotesStore();
       const key = getTeacherNoteKey();
-      const notes = store[key] || [];
-      notes.push({
-        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        text,
-        createdAt: new Date().toLocaleString("ru-RU", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit"
-        })
-      });
-      store[key] = notes;
-      writeTeacherNotesStore(store);
-      textInput.value = "";
-      renderTeacherNotes();
+      const submitButton = event.currentTarget.querySelector("button[type='submit']");
+      textInput.disabled = true;
+      submitButton.disabled = true;
+
+      try {
+        const notes = await createTeacherNote(key, text);
+        textInput.value = "";
+        renderTeacherNotesList(notes);
+      } catch {
+        const notes = getLocalTeacherNotes(key);
+        notes.push({
+          id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          text,
+          createdAt: new Date().toLocaleString("ru-RU", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+          })
+        });
+        writeLocalTeacherNotes(key, notes);
+        textInput.value = "";
+        renderTeacherNotesList(notes, "Локальный режим: глобальное хранилище не настроено.");
+      } finally {
+        textInput.disabled = false;
+        submitButton.disabled = false;
+      }
     });
 
     document.getElementById("teacherNotes").addEventListener("click", (event) => {
