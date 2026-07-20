@@ -569,6 +569,18 @@
     .assistant-shell {
       display: grid;
       gap: 16px;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .helper-view,
+    .helper-section,
+    .assistant-settings,
+    .assistant-chat,
+    .assistant-composer,
+    .assistant-settings > *,
+    .assistant-composer > * {
+      min-width: 0;
+      max-width: 100%;
     }
     .assistant-settings {
       display: grid;
@@ -657,6 +669,8 @@
       background: white;
     }
     .assistant-composer textarea {
+      width: 100%;
+      min-width: 0;
       min-height: 92px;
       border: 1px solid #e5e7eb;
       border-radius: 16px;
@@ -798,6 +812,14 @@
       white-space: pre-wrap;
     }
     ul { margin: 0; padding-left: 20px; line-height: 1.65; }
+    @media (max-width: 1500px) {
+      .assistant-settings {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      }
+      .assistant-settings .btn {
+        width: 100%;
+      }
+    }
     @media (max-width: 1180px) {
       .layout {
         grid-template-columns: 1fr;
@@ -6690,11 +6712,6 @@
         text: `Max: https://max.ru/id7708443010_bot или
 Телеграмм: https://t.me/kvantastica. Ник: @kvantastica
 Или позвоните нам на горячую линию: +7 (495) 148-58-11`
-      },
-      {
-        id: "global-my-schedule",
-        title: "Мое расписание",
-        text: ""
       }
     ];
 
@@ -7692,28 +7709,7 @@ P.S. Если будут вопросы, то пишите! Будем рады 
 
     function renderTemplateMessages() {
       const messages = getTemplateMessages();
-      const scheduleUrl = localStorage.getItem(helperScheduleStorageKey) || "";
-      const scheduleCard = `
-        <article class="helper-link-card ${scheduleUrl ? "" : "attention"}">
-          <div>
-            <b>Мое расписание</b>
-            <p>${scheduleUrl ? "Расписание сохранено в этом браузере." : "Заполни ссылку на свое расписание."}</p>
-            ${isScheduleEditing ? `
-              <div class="schedule-edit">
-                <input id="templateScheduleUrlInput" value="${escapeHtml(scheduleUrl)}" placeholder="https://..." />
-                <button class="btn" type="button" id="saveTemplateScheduleUrl">Сохранить</button>
-                <button class="btn secondary" type="button" id="cancelTemplateScheduleEdit">Отмена</button>
-              </div>
-            ` : ""}
-          </div>
-          <div class="template-actions">
-            ${scheduleUrl ? `<a class="btn secondary" href="${escapeHtml(scheduleUrl)}" target="_blank" rel="noopener noreferrer">Открыть</a>` : ""}
-            <button class="btn secondary" type="button" id="editTemplateScheduleUrl" title="Изменить расписание">✎</button>
-          </div>
-        </article>
-      `;
-
-      document.getElementById("templateMessageList").innerHTML = scheduleCard + messages.filter(item => item.id !== "global-my-schedule").map(item => {
+      document.getElementById("templateMessageList").innerHTML = messages.map(item => {
         const isEditing = editingTemplateId === item.id;
         return `
           <details class="template-card" ${isEditing ? "open" : ""}>
@@ -8256,29 +8252,6 @@ P.S. Если будут вопросы, то пишите! Будем рады 
     });
 
     document.getElementById("templateMessageList").addEventListener("click", (event) => {
-      if (event.target.id === "editTemplateScheduleUrl") {
-        isScheduleEditing = true;
-        renderTemplateMessages();
-        document.getElementById("templateScheduleUrlInput")?.focus();
-        return;
-      }
-      if (event.target.id === "cancelTemplateScheduleEdit") {
-        isScheduleEditing = false;
-        renderTemplateMessages();
-        return;
-      }
-      if (event.target.id === "saveTemplateScheduleUrl") {
-        const value = document.getElementById("templateScheduleUrlInput").value.trim();
-        if (value) {
-          localStorage.setItem(helperScheduleStorageKey, value);
-        } else {
-          localStorage.removeItem(helperScheduleStorageKey);
-        }
-        isScheduleEditing = false;
-        renderTemplateMessages();
-        return;
-      }
-
       const copyButton = event.target.closest("[data-copy-template]");
       if (copyButton) {
         event.preventDefault();
